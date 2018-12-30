@@ -1,0 +1,265 @@
+<html>
+	<head>
+		<script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+		<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+		<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore.js"></script>
+		<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+		<script type="text/javascript" src="client/client.js"></script>
+		<style>
+		table {
+			border-collapse: collapse;
+		}
+		td {
+			border: 1px solid;
+			width: 50px;
+			height: 50px;
+			vertical-align: top;
+			padding:0px;
+		}
+
+
+		.container {
+			position: relative;
+			cursor: pointer;
+			font-size: 22px;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+		}
+
+		.container input {
+			position: absolute;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		.checkmark {
+			top: 0;
+			left: 0;
+			height: 50px;
+			width: 50px;
+			position: absolute;
+			color: #212121;
+		}
+
+		.container:hover input ~ .checkmark {
+			background-color: #ccc;
+		}
+
+		.container input:checked ~ .checkmark {
+			background-color: #f00;
+		}
+
+		.checkmark {
+		}
+
+		.container input:checked ~ .checkmark {
+			display: block;
+			color: #fafafa;
+		}
+		p {
+			margin:4px;
+		}
+
+		</style>
+
+		<script>
+		function update(data)
+		{
+			//console.log(data)
+			json=JSON.parse(data.slice(0));
+			
+			var start = moment(new Date(json.start*8.64e7));
+			var end = moment(new Date(json.end*8.64e7));
+			
+			
+			var datepicker = document.getElementById("datepicker");
+			datepicker.value = start.format('MM/DD/YYYY') + ' - ' + end.format('MM/DD/YYYY');
+			$('input[name="daterange"]').data('daterangepicker').setStartDate(start.format('MM/DD/YYYY'));
+			$('input[name="daterange"]').data('daterangepicker').setEndDate(end.format('MM/DD/YYYY'));
+			
+			var node = document.getElementById("placeholder");
+			while (node.firstChild) {
+				node.removeChild(node.firstChild);
+			}
+			while (end > start && (start.format('YYYY') < end.format('YYYY') || start.format('M') < end.format('M'))) {
+			   //console.log(start.format('MMMM') +" "+ moment(start.format('YYYY-MM')).daysInMonth()	);
+			   createMonth(start.format('YYYY'),start.format('MMMM'),start.format('DD'),moment(start.format('YYYY-MM')).daysInMonth())
+			   start.add(1,'month');
+			   start.startOf('month')
+			}
+			createMonth(start.format('YYYY'),end.format('MMMM'),start.format('DD'),end.format('DD'))
+
+			for (i=json.start-1;i<json.end;i++)
+			{
+				//console.log(i+" "+json.data[i])
+				document.getElementById(i).checked = json.data[i]
+			}
+			for (i=json.start-1;i<json.end;i++)
+			{
+				(function (i) {
+					document.getElementById(i).addEventListener("input", function() {
+						json.data[i] = document.getElementById(i).checked;
+						json.data = _.pick(json.data,_.range(json.start-1,json.end))
+						var datastring=JSON.stringify(json);
+						updateFile(datastring);
+					}, false);
+				}(i)); // immediate invocation
+			}
+		}
+		function updateFile(text)
+		{
+			$.post('client/push.php',{text:text}).done(function(response) {
+			console.log(response);
+			});
+		}
+		</script>
+		<script>
+		$(function() {
+		  $('input[name="daterange"]').daterangepicker({
+			opens: 'left'
+		  }, function(start, end, label) {
+			console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
+			json.start= Math.floor(start/8.64e7);
+			json.end= Math.floor(end/8.64e7);
+			json.data = _.pick(json.data,_.range(json.start-1,json.end))
+			var datastring=JSON.stringify(json);
+			updateFile(datastring);
+			var datepicker = document.getElementById("datepicker");
+			datepicker.value = start.format('MM/DD/YYYY') + ' - ' + end.format('MM/DD/YYYY');
+			$('input[name="daterange"]').data('daterangepicker').setStartDate(start.format('MM/DD/YYYY'));
+			$('input[name="daterange"]').data('daterangepicker').setEndDate(end.format('MM/DD/YYYY'));
+
+			
+			var node = document.getElementById("placeholder");
+			while (node.firstChild) {
+				node.removeChild(node.firstChild);
+			}
+			while (end > start && (start.format('YYYY') < end.format('YYYY') || start.format('M') < end.format('M'))) {
+			   //console.log(start.format('MMMM') +" "+ moment(start.format('YYYY-MM')).daysInMonth()	);
+			   createMonth(start.format('YYYY'),start.format('MMMM'),start.format('DD'),moment(start.format('YYYY-MM')).daysInMonth())
+			   start.add(1,'month');
+			   start.startOf('month');
+			}
+			createMonth(start.format('YYYY'),end.format('MMMM'),start.format('DD'),end.format('DD'))
+		  });
+		});
+		</script>
+		<script>
+		function createMonth(year,month,start,end)
+		{
+			//console.log(month + " " + start + " " + end);
+			
+			var label = document.createElement("p");
+			label.innerHTML=month + " " + year;
+			document.getElementById('placeholder').appendChild(label);
+			
+			var rows=weeksInMonth(moment(new Date(month + " " + start + " " + year)))+1;
+			var cols=7;
+			var table = document.createElement("table"); 
+			for (var r = rows; r>0; r--){
+			  var row = table.insertRow(-1);
+			  for (var c = 0; c<cols; c++){
+				var cell = row.insertCell(-1);
+				cell.setAttribute('id', month + 'abcdefg'.charAt(c) + (rows-r));
+			  }
+			}
+			document.getElementById('placeholder').appendChild(table);
+			
+			var label = document.createElement("p");
+			label.innerHTML="Sun";
+			document.getElementById(month+'a0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Mon";
+			document.getElementById(month+'b0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Tue";
+			document.getElementById(month+'c0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Wed";
+			document.getElementById(month+'d0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Thu";
+			document.getElementById(month+'e0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Fri";
+			document.getElementById(month+'f0').appendChild(label);
+			var label = document.createElement("p");
+			label.innerHTML="Sat";
+			document.getElementById(month+'g0').appendChild(label);
+			
+			for (var i = start;i <= end;i++)
+			{
+				var date = new Date(month + " " + i + " " + year);
+				var cell = convertToCellId(year,month,i);
+				
+				var labelNode = document.createElement("label");
+				labelNode.setAttribute('class', 'container');
+				
+				var inputNode = document.createElement("input");
+				inputNode.setAttribute('type', 'checkbox');
+				inputNode.setAttribute('id', Math.floor(date/8.64e7));
+				labelNode.appendChild(inputNode);
+				
+				var divNode = document.createElement("div");
+				divNode.setAttribute('class', 'checkmark');
+				labelNode.appendChild(divNode);
+				
+				var pNode = document.createElement("p");
+				pNode.innerHTML=Math.floor(i);
+				divNode.appendChild(pNode);
+				
+				//console.log(month + " " + i + " " + year + " " + cell);
+				document.getElementById(cell).appendChild(labelNode);
+			}
+			
+		}
+		
+		function convertToCellId(year,month,day)
+		{
+			var date = moment(new Date(month + " " + day + " " + year));
+			var day = 'abcdefg'.charAt(date.day());
+			var week = date.week() - date.startOf('month').week() + 1
+			
+			if (week < 0)
+			{
+				week = weeksInMonth(date);
+			}
+			
+			return month+day+week;
+		}
+		
+		function weeksInMonth(date)
+		{
+			date = date.startOf('month');
+			var firstDayOfMonth = moment(date);
+			var numberOfWeeks = 1;
+
+			var currentDay = moment(firstDayOfMonth);
+			var currentWeek = currentDay.week();
+
+			while(currentDay.month() === firstDayOfMonth.month()) {
+				if (currentDay.week() !== currentWeek)
+				{
+					numberOfWeeks++;
+					currentWeek = currentDay.week();
+				}
+				currentDay.add(1, 'days');
+			}
+			return numberOfWeeks;
+		}
+		</script>
+	</head>
+	<body>
+		<center>
+			<input type="text" name="daterange" id="datepicker" value="01/01/2019 - 01/15/2019" />
+			<br />
+			<br />
+			<div id="placeholder"> </div>
+
+		</center>
+
+	</body>
+</html>
